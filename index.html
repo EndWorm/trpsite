@@ -24,16 +24,37 @@
         <div id="auth-section">
             <div class="auth-form">
                 <h2>Текстовый РП</h2>
-                <div id="auth-register" style="display:none;">
-                    <p class="auth-subtitle">Первый вход — выберите имя персонажа</p>
-                    <input type="text" id="username-input" placeholder="Имя персонажа" maxlength="20">
-                    <input type="password" id="password-input" placeholder="Пароль ГМа (если вы ГМ)">
-                    <button id="login-btn">Зарегистрироваться и войти</button>
-                    <div class="gm-hint">💡 Имя нельзя будет изменить</div>
-                </div>
-                <div id="auth-loading" style="display:none;">
+
+                <!-- Загрузка -->
+                <div id="auth-loading">
                     <div class="loading-spinner" style="margin:0 auto;"></div>
-                    <p class="auth-subtitle" style="margin-top:10px;">Подключение к серверу...</p>
+                    <p class="auth-subtitle" style="margin-top:10px;">Подключение...</p>
+                </div>
+
+                <!-- Список аккаунтов -->
+                <div id="auth-accounts" style="display:none;">
+                    <p class="auth-subtitle">Выберите персонажа</p>
+                    <div id="accounts-list"></div>
+                    <div id="auth-gm-controls" style="display:none; margin-top:12px; border-top:1px solid var(--accent-border); padding-top:12px;">
+                        <p class="auth-subtitle" style="margin-bottom:8px;">Управление (ГМ)</p>
+                        <div style="display:flex; gap:6px; margin-bottom:8px;">
+                            <input type="text" id="new-account-name" placeholder="Имя нового игрока" maxlength="20" style="flex:1; padding:7px 10px; border:1px solid var(--accent-border); border-radius:7px; background:var(--bg-input); color:var(--text); font-size:12px;">
+                            <button onclick="gmCreateAccount()" style="flex-shrink:0;">+ Создать</button>
+                        </div>
+                        <p class="auth-subtitle" style="font-size:10px; opacity:0.6;">Нажмите × рядом с игроком чтобы удалить аккаунт</p>
+                    </div>
+                    <div style="margin-top:10px; border-top:1px solid var(--accent-border); padding-top:10px;">
+                        <input type="password" id="gm-unlock-input" placeholder="Пароль ГМа для управления" style="width:100%; padding:7px 10px; border:1px solid rgba(251,191,36,0.3); border-radius:7px; background:var(--bg-input); color:var(--text); font-size:12px; margin-bottom:6px;">
+                        <button id="gm-unlock-btn" onclick="gmUnlock()" style="width:100%; background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#1a1a2e;">🔑 Войти как ГМ</button>
+                    </div>
+                </div>
+
+                <!-- Первый запуск — нет аккаунтов -->
+                <div id="auth-first-run" style="display:none;">
+                    <p class="auth-subtitle">Первый запуск — создайте аккаунт ГМа</p>
+                    <input type="text" id="first-gm-name" placeholder="Имя ГМа" maxlength="20" style="width:100%; padding:9px 11px; margin-bottom:10px; border:1px solid var(--accent-border); border-radius:8px; background:var(--bg-input); color:var(--text); font-size:13px;">
+                    <input type="password" id="first-gm-password" placeholder="Придумайте пароль ГМа" style="width:100%; padding:9px 11px; margin-bottom:10px; border:1px solid rgba(251,191,36,0.3); border-radius:8px; background:var(--bg-input); color:var(--text); font-size:13px;">
+                    <button onclick="firstRunSetup()" style="width:100%; padding:9px; font-size:14px;">Создать и войти</button>
                 </div>
             </div>
         </div>

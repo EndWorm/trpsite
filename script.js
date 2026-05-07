@@ -34,9 +34,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // Есть сохранённый пользователь — автовход
             showMainSection();
         } else {
-            // Первый визит — показываем форму регистрации
-            document.getElementById('auth-loading').style.display = 'none';
-            document.getElementById('auth-register').style.display = 'block';
+            // Показываем экран выбора аккаунта
+            showAuthScreen();
         }
         subscribeToFirebase();
     };
@@ -71,11 +70,6 @@ function showLoadingIndicator(show) {
 }
 
 function initEventListeners() {
-    document.getElementById('login-btn').addEventListener('click', login);
-    document.getElementById('username-input').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') login();
-    });
-
     document.getElementById('logout-btn').addEventListener('click', logout);
     document.getElementById('profile-btn').addEventListener('click', openProfile);
     document.getElementById('dice-panel-btn').addEventListener('click', openDicePanel);
@@ -106,47 +100,6 @@ function initEventListeners() {
     });
 }
 
-function login() {
-    const username = document.getElementById('username-input').value.trim();
-    const password = document.getElementById('password-input').value;
-
-    if (!username) { alert('Введите имя персонажа'); return; }
-
-    // Проверяем уникальность имени среди игроков (не ГМов)
-    const isGM = (password === state.gmPassword);
-    const finalName = isGM ? username + ' [ГМ]' : username;
-
-    if (!isGM && state.players && state.players[finalName] === undefined) {
-        // Новый игрок — просто регистрируем
-    } else if (!isGM && state.players && state.players[finalName] !== undefined) {
-        // Имя уже занято другим игроком — проверяем совпадение
-        // (разрешаем — это тот же игрок перерегистрируется)
-    }
-
-    state.isGM = isGM;
-    state.currentUser = finalName;
-
-    // Создаём профиль если нет
-    if (!state.profiles[finalName]) {
-        state.profiles[finalName] = createEmptyProfile();
-    }
-
-    // Регистрируем игрока в общем списке
-    if (!state.players) state.players = {};
-    if (!state.players[finalName]) {
-        state.players[finalName] = { registeredAt: new Date().toISOString() };
-    }
-
-    // Сохраняем имя навсегда в localStorage
-    localStorage.setItem('savedUser', JSON.stringify({
-        username: finalName,
-        isGM: isGM
-    }));
-
-    saveToStorage();
-    showMainSection();
-}
-
 function createEmptyProfile() {
     return {
         bio: '', avatar: '',
@@ -163,28 +116,147 @@ function createEmptyProfile() {
     };
 }
 
-function logout() {
-    if (confirm('Выйти из аккаунта? При следующем входе потребуется снова ввести имя.')) {
-        localStorage.removeItem('savedUser');
-        state.currentUser = null;
-        state.currentRoom = null;
-        state.isGM = false;
-        saveToStorage();
-        showAuthSection();
-    }
-}
+// ── Экран входа ───────────────────────────────────────────────────────────────
 
-function showAuthSection() {
+// Показывает экран выбора аккаунта после загрузки Firebase
+function showAuthScreen() {
     document.getElementById('auth-section').style.display = 'flex';
     document.getElementById('main-section').style.display = 'none';
     document.getElementById('logout-btn').style.display = 'none';
     document.getElementById('profile-btn').style.display = 'none';
     document.getElementById('players-btn').style.display = 'none';
-    document.getElementById('dice-panel-btn').style.display = 'none';
     document.getElementById('username-display').textContent = '';
-    // Показываем форму регистрации
-    document.getElementById('auth-register').style.display = 'block';
+
     document.getElementById('auth-loading').style.display = 'none';
+    document.getElementById('auth-first-run').style.display = 'none';
+    document.getElementById('auth-accounts').style.display = 'none';
+    document.getElementById('auth-gm-controls').style.display = 'none';
+
+    const players = state.players || {};
+    const names = Object.keys(players);
+
+    if (names.length === 0 && !state.gmPassword) {
+        // Совсем первый запуск — нет ни аккаунтов ни пароля ГМа
+        document.getElementById('auth-first-run').style.display = 'block';
+    } else {
+        // Показываем список аккаунтов
+        renderAccountsList();
+        document.getElementById('auth-accounts').style.display = 'block';
+    }
+}
+
+function renderAccountsList() {
+    const players = state.players || {};
+    const list = document.getElementById('accounts-list');
+    const names = Object.keys(players);
+
+    if (names.length === 0) {
+        list.innerHTML = '<p class="auth-subtitle" style="margin:8px 0;">Нет игроков. ГМ может создать аккаунты.</p>';
+        return;
+    }
+
+    list.innerHTML = names.map(name => {
+        const profile = state.profiles[name] || {};
+        const avatar = profile.avatar
+            ? `<img src="${profile.avatar}" class="account-avatar">`
+            : `<div class="account-avatar account-avatar--default">👤</div>`;
+        const isGMAccount = name.includes('[ГМ]');
+        const deleteBtn = `<button class="account-delete-btn" id="del-${name}" style="display:none;" onclick="gmDeleteAccount('${name.replace(/'/g,"\\'")}')">×</button>`;
+        return `
+            <div class="account-item" onclick="loginAs('${name.replace(/'/g,"\\'")}')">
+                ${avatar}
+                <div class="account-name">${name}</div>
+                ${isGMAccount ? '' : deleteBtn}
+            </div>`;
+    }).join('');
+}
+
+// Войти как выбранный игрок
+function loginAs(username) {
+    const isGM = username.includes('[ГМ]');
+    state.currentUser = username;
+    state.isGM = isGM;
+
+    if (!state.profiles[username]) {
+        state.profiles[username] = createEmptyProfile();
+        saveToStorage();
+    }
+
+    localStorage.setItem('savedUser', JSON.stringify({ username, isGM }));
+    showMainSection();
+}
+
+// Первый запуск — создаём ГМа и пароль
+function firstRunSetup() {
+    const name = document.getElementById('first-gm-name').value.trim();
+    const pass = document.getElementById('first-gm-password').value.trim();
+    if (!name) { alert('Введите имя'); return; }
+    if (!pass)  { alert('Придумайте пароль'); return; }
+
+    const gmName = name + ' [ГМ]';
+    state.gmPassword = pass;
+    if (!state.players) state.players = {};
+    state.players[gmName] = { registeredAt: new Date().toISOString(), isGM: true };
+    if (!state.profiles[gmName]) state.profiles[gmName] = createEmptyProfile();
+
+    localStorage.setItem('savedUser', JSON.stringify({ username: gmName, isGM: true }));
+    state.currentUser = gmName;
+    state.isGM = true;
+    saveToStorage();
+    showMainSection();
+}
+
+// ГМ разблокирует управление аккаунтами
+function gmUnlock() {
+    const pass = document.getElementById('gm-unlock-input').value;
+    if (pass === state.gmPassword) {
+        document.getElementById('auth-gm-controls').style.display = 'block';
+        document.getElementById('gm-unlock-input').value = '';
+        // Показываем кнопки удаления
+        document.querySelectorAll('[id^="del-"]').forEach(btn => btn.style.display = 'flex');
+    } else {
+        alert('Неверный пароль');
+    }
+}
+
+// ГМ создаёт новый аккаунт игрока
+function gmCreateAccount() {
+    const name = document.getElementById('new-account-name').value.trim();
+    if (!name) return;
+    if (name.includes('[ГМ]')) { alert('Нельзя использовать [ГМ] в имени'); return; }
+    if (state.players && state.players[name]) { alert('Такой игрок уже есть'); return; }
+
+    if (!state.players) state.players = {};
+    state.players[name] = { registeredAt: new Date().toISOString() };
+    if (!state.profiles[name]) state.profiles[name] = createEmptyProfile();
+
+    document.getElementById('new-account-name').value = '';
+    saveToStorage();
+    renderAccountsList();
+    // Снова показываем кнопки удаления
+    document.querySelectorAll('[id^="del-"]').forEach(btn => btn.style.display = 'flex');
+}
+
+// ГМ удаляет аккаунт
+function gmDeleteAccount(name) {
+    if (!confirm(`Удалить аккаунт "${name}"? Профиль будет удалён.`)) return;
+    delete state.players[name];
+    delete state.profiles[name];
+    saveToStorage();
+    renderAccountsList();
+    document.querySelectorAll('[id^="del-"]').forEach(btn => btn.style.display = 'flex');
+}
+
+function logout() {
+    localStorage.removeItem('savedUser');
+    state.currentUser = null;
+    state.currentRoom = null;
+    state.isGM = false;
+    showAuthScreen();
+}
+
+function showAuthSection() {
+    showAuthScreen();
 }
 
 function showMainSection() {

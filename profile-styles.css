@@ -1506,3 +1506,77 @@
     margin-bottom: 14px;
     opacity: 0.85;
 }
+
+/* ── Экран выбора аккаунта ────────────────────────────────────────────────── */
+
+#accounts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 280px;
+    overflow-y: auto;
+    margin-bottom: 4px;
+}
+
+.account-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 9px;
+    background: rgba(139, 92, 246, 0.07);
+    border: 1px solid rgba(139, 92, 246, 0.15);
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+}
+.account-item:hover {
+    background: rgba(139, 92, 246, 0.15);
+    border-color: rgba(139, 92, 246, 0.4);
+    transform: translateX(3px);
+}
+
+.account-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+.account-avatar--default {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(139, 92, 246, 0.15);
+    font-size: 16px;
+}
+
+.account-name {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 600;
+    color: #e0e0e0;
+}
+
+.account-delete-btn {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    font-size: 14px;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: none;
+    transition: background 0.15s;
+}
+.account-delete-btn:hover {
+    background: rgba(239, 68, 68, 0.35);
+    transform: none;
+}
