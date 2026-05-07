@@ -21,11 +21,56 @@ document.addEventListener('DOMContentLoaded', () => {
     loadFromStorage();
     initEventListeners();
     initAccordions();
-    
-    if (state.currentUser) {
-        showMainSection();
+
+    showLoadingIndicator(true);
+
+    const proceed = () => {
+        showLoadingIndicator(false);
+        if (state.currentUser) showMainSection();
+        subscribeToFirebase();
+    };
+
+    const loadFromFirebase = () => {
+        if (window.firebaseLoad) {
+            window.firebaseLoad(data => {
+                if (data) applySharedState(data);
+                proceed();
+            });
+        } else {
+            proceed();
+        }
+    };
+
+    // Если Firebase уже готов — грузим сразу, иначе ждём события
+    if (window.firebaseLoad) {
+        loadFromFirebase();
+    } else {
+        window.addEventListener('firebase-ready', loadFromFirebase, { once: true });
+        // Таймаут на случай если Firebase не загрузился (офлайн)
+        setTimeout(() => {
+            if (document.getElementById('loading-indicator').style.display !== 'none') {
+                proceed();
+            }
+        }, 5000);
     }
 });
+
+function showLoadingIndicator(show) {
+    let el = document.getElementById('loading-indicator');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'loading-indicator';
+        el.innerHTML = '<div class="loading-spinner"></div><span>Подключение...</span>';
+        el.style.cssText = `
+            position:fixed; inset:0; background:rgba(15,12,41,0.92);
+            display:flex; align-items:center; justify-content:center;
+            gap:12px; color:#a78bfa; font-size:14px; z-index:99999;
+            flex-direction:column;
+        `;
+        document.body.appendChild(el);
+    }
+    el.style.display = show ? 'flex' : 'none';
+}
 
 function initEventListeners() {
     document.getElementById('login-btn').addEventListener('click', login);
@@ -726,31 +771,83 @@ function kickUser() {
     }
 }
 
+// ── Что синхронизируется через Firebase (общее для всех) ─────────────────────
+function getSharedState() {
+    return {
+        rooms:           state.rooms,
+        messages:        state.messages,
+        groups:          state.groups,
+        archivedRooms:   state.archivedRooms,
+        archivedMessages: state.archivedMessages,
+        profiles:        state.profiles,
+        diceHistory:     state.diceHistory,
+        diceTemplates:   state.diceTemplates,
+        maps:            state.maps,
+        gmPassword:      state.gmPassword
+    };
+}
+
+function applySharedState(data) {
+    if (!data) return;
+    const shared = [
+        'rooms','messages','groups','archivedRooms','archivedMessages',
+        'profiles','diceHistory','diceTemplates','maps','gmPassword'
+    ];
+    shared.forEach(key => {
+        if (data[key] !== undefined) state[key] = data[key];
+    });
+}
+
 function saveToStorage() {
-    const toSave = {
+    // Личные данные — только localStorage
+    localStorage.setItem('rpUser', JSON.stringify({
         currentUser: state.currentUser,
         currentRoom: state.currentRoom,
-        rooms: state.rooms,
-        messages: state.messages,
-        isGM: state.isGM,
-        gmPassword: state.gmPassword,
-        archivedRooms: state.archivedRooms,
-        archivedMessages: state.archivedMessages,
-        currentTab: state.currentTab,
-        profiles: state.profiles,
-        diceHistory: state.diceHistory,
-        diceTemplates: state.diceTemplates,
-        maps: state.maps
-    };
-    localStorage.setItem('rpState', JSON.stringify(toSave));
+        isGM:        state.isGM
+    }));
+
+    // Общие данные — Firebase + localStorage как кэш
+    const shared = getSharedState();
+    localStorage.setItem('rpShared', JSON.stringify(shared));
+    if (window.firebaseSave) window.firebaseSave(shared);
 }
 
 function loadFromStorage() {
-    const saved = localStorage.getItem('rpState');
-    if (saved) {
-        const loaded = JSON.parse(saved);
-        Object.assign(state, loaded);
+    // Личные данные из localStorage
+    const user = localStorage.getItem('rpUser');
+    if (user) {
+        try { Object.assign(state, JSON.parse(user)); } catch(e) {}
     }
+
+    // Общие данные — сначала кэш, потом Firebase перезапишет
+    const cached = localStorage.getItem('rpShared');
+    if (cached) {
+        try { applySharedState(JSON.parse(cached)); } catch(e) {}
+    }
+}
+
+// Подписка на Firebase — вызывается один раз после DOMContentLoaded
+function subscribeToFirebase() {
+    if (!window.firebaseSubscribe) return;
+
+    window.firebaseSubscribe(data => {
+        applySharedState(data);
+        // Кэшируем локально
+        localStorage.setItem('rpShared', JSON.stringify(data));
+
+        // Обновляем UI если пользователь уже вошёл
+        if (state.currentUser) {
+            renderRoomTabs();
+            renderMessages(state.currentRoomIsArchived || false);
+            renderRoomDiceHistory();
+            updateOnlineUsers();
+            // Если открыт профиль — обновляем его
+            if (_editingProfile && document.getElementById('profile-modal').style.display === 'flex') {
+                const canEdit = state.isGM;
+                openProfileFor(_editingProfile, canEdit);
+            }
+        }
+    });
 }
 
 // ── Хелперы для модальных окон ───────────────────────────────────────────────
