@@ -31,28 +31,25 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const loadFromFirebase = () => {
-        if (window.firebaseLoad) {
-            window.firebaseLoad(data => {
-                if (data) applySharedState(data);
-                proceed();
-            });
-        } else {
+        window.firebaseLoad(data => {
+            if (data) applySharedState(data);
             proceed();
-        }
+        });
     };
 
-    // Если Firebase уже готов — грузим сразу, иначе ждём события
-    if (window.firebaseLoad) {
-        loadFromFirebase();
-    } else {
-        window.addEventListener('firebase-ready', loadFromFirebase, { once: true });
-        // Таймаут на случай если Firebase не загрузился (офлайн)
-        setTimeout(() => {
-            if (document.getElementById('loading-indicator').style.display !== 'none') {
-                proceed();
-            }
-        }, 5000);
-    }
+    // Ждём пока ES-модуль firebase.js выставит флаг _firebaseReady
+    let attempts = 0;
+    const waitForFirebase = setInterval(() => {
+        attempts++;
+        if (window._firebaseReady) {
+            clearInterval(waitForFirebase);
+            loadFromFirebase();
+        } else if (attempts > 50) {
+            // 5 секунд прошло — работаем без Firebase
+            clearInterval(waitForFirebase);
+            proceed();
+        }
+    }, 100);
 });
 
 function showLoadingIndicator(show) {

@@ -1,48 +1,28 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getDatabase, ref, set, onValue, get } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
-const firebaseConfig = {
-    databaseURL: 'https://trpendowmr-default-rtdb.firebaseio.com'
-};
-
-const app = initializeApp(firebaseConfig);
+const app = initializeApp({ databaseURL: 'https://trpendowmr-default-rtdb.firebaseio.com' });
 const db  = getDatabase(app);
 
-// ── Публичный API для script.js ───────────────────────────────────────────────
-
-// Дебаунс — не пишем в Firebase чаще чем раз в 300мс
 let _saveTimer = null;
+
 window.firebaseSave = function(data) {
     clearTimeout(_saveTimer);
     _saveTimer = setTimeout(() => {
-        set(ref(db, 'rpState'), data).catch(err => {
-            console.warn('Firebase write error:', err);
-        });
-    }, 300);
+        set(ref(db, 'rpState'), data).catch(e => console.warn('Firebase write:', e));
+    }, 400);
 };
 
-// Разовое чтение при старте
 window.firebaseLoad = function(callback) {
-    get(ref(db, 'rpState')).then(snapshot => {
-        if (snapshot.exists()) {
-            callback(snapshot.val());
-        } else {
-            callback(null);
-        }
-    }).catch(err => {
-        console.warn('Firebase read error:', err);
-        callback(null);
-    });
+    get(ref(db, 'rpState'))
+        .then(snap => callback(snap.exists() ? snap.val() : null))
+        .catch(e  => { console.warn('Firebase read:', e); callback(null); });
 };
 
-// Подписка на изменения в реальном времени
 window.firebaseSubscribe = function(callback) {
-    onValue(ref(db, 'rpState'), snapshot => {
-        if (snapshot.exists()) {
-            callback(snapshot.val());
-        }
+    onValue(ref(db, 'rpState'), snap => {
+        if (snap.exists()) callback(snap.val());
     });
 };
 
-// Сигнализируем script.js что Firebase готов
-window.dispatchEvent(new Event('firebase-ready'));
+window._firebaseReady = true;
