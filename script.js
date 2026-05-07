@@ -13,8 +13,9 @@ const state = {
     diceHistory: [],
     diceTemplates: {},
     maps: [],
-    groups: [],         // { id, name, collapsed }
-    players: {}         // { username: { registeredAt } }
+    groups: [],
+    players: {},
+    applications: {}    // { id: { name, note, status: 'pending'|'approved'|'rejected', submittedAt } }
 };
 
 // Инициализация
@@ -112,7 +113,14 @@ function createEmptyProfile() {
 
 // ── Экран входа ───────────────────────────────────────────────────────────────
 
-// Показывает экран выбора аккаунта после загрузки Firebase
+function switchAuthTab(tab) {
+    document.querySelectorAll('.auth-tab').forEach((t, i) => {
+        t.classList.toggle('active', (i === 0) === (tab === 'login'));
+    });
+    document.getElementById('auth-tab-login').style.display = tab === 'login' ? 'block' : 'none';
+    document.getElementById('auth-tab-apply').style.display = tab === 'apply' ? 'block' : 'none';
+}
+
 function showAuthScreen() {
     document.getElementById('auth-section').style.display = 'flex';
     document.getElementById('main-section').style.display = 'none';
@@ -127,13 +135,9 @@ function showAuthScreen() {
     document.getElementById('auth-gm-controls').style.display = 'none';
 
     const players = state.players || {};
-    const names = Object.keys(players);
-
-    if (names.length === 0 && !state.gmPassword) {
-        // Совсем первый запуск — нет ни аккаунтов ни пароля ГМа
+    if (Object.keys(players).length === 0 && !state.gmPassword) {
         document.getElementById('auth-first-run').style.display = 'block';
     } else {
-        // Показываем список аккаунтов
         renderAccountsList();
         document.getElementById('auth-accounts').style.display = 'block';
     }
@@ -145,7 +149,7 @@ function renderAccountsList() {
     const names = Object.keys(players);
 
     if (names.length === 0) {
-        list.innerHTML = '<p class="auth-subtitle" style="margin:8px 0;">Нет игроков. ГМ может создать аккаунты.</p>';
+        list.innerHTML = '<p class="auth-subtitle" style="margin:8px 0;">Нет одобренных аккаунтов.</p>';
         return;
     }
 
@@ -155,32 +159,110 @@ function renderAccountsList() {
             ? `<img src="${profile.avatar}" class="account-avatar">`
             : `<div class="account-avatar account-avatar--default">👤</div>`;
         const isGMAccount = name.includes('[ГМ]');
-        const deleteBtn = `<button class="account-delete-btn" id="del-${name}" style="display:none;" onclick="gmDeleteAccount('${name.replace(/'/g,"\\'")}')">×</button>`;
+        const deleteBtn = isGMAccount ? '' :
+            `<button class="account-delete-btn gm-only-btn" style="display:none"
+                onclick="event.stopPropagation(); gmDeleteAccount('${name.replace(/'/g,"\\'")}')">×</button>`;
         return `
             <div class="account-item" onclick="loginAs('${name.replace(/'/g,"\\'")}')">
                 ${avatar}
                 <div class="account-name">${name}</div>
-                ${isGMAccount ? '' : deleteBtn}
+                ${deleteBtn}
             </div>`;
     }).join('');
 }
 
-// Войти как выбранный игрок
-function loginAs(username) {
-    const isGM = username.includes('[ГМ]');
-    state.currentUser = username;
-    state.isGM = isGM;
+function renderPendingApplications() {
+    const apps = state.applications || {};
+    const pending = Object.entries(apps).filter(([, a]) => a.status === 'pending');
+    const el = document.getElementById('pending-list');
+    if (!el) return;
 
+    if (pending.length === 0) {
+        el.innerHTML = '<p class="auth-subtitle" style="font-size:11px; margin-bottom:6px;">Нет новых заявок</p>';
+        return;
+    }
+
+    el.innerHTML = `<p class="auth-subtitle" style="font-size:11px; margin-bottom:6px;">📨 Заявки на вступление:</p>` +
+        pending.map(([id, app]) => `
+            <div class="pending-item">
+                <div class="pending-info">
+                    <div class="pending-name">${app.name}</div>
+                    ${app.note ? `<div class="pending-note">${app.note}</div>` : ''}
+                </div>
+                <div class="pending-actions">
+                    <button class="gm-btn warning" onclick="approveApplication('${id}')">✓</button>
+                    <button class="gm-btn danger"  onclick="rejectApplication('${id}')">×</button>
+                </div>
+            </div>`
+        ).join('');
+}
+
+// Игрок подаёт заявку
+function submitApplication() {
+    const name = document.getElementById('apply-name-input').value.trim();
+    const note = document.getElementById('apply-note-input').value.trim();
+    const statusEl = document.getElementById('apply-status');
+
+    if (!name) { statusEl.innerHTML = '<p class="auth-subtitle" style="color:#ef4444;">Введите имя</p>'; return; }
+    if (name.includes('[ГМ]')) { statusEl.innerHTML = '<p class="auth-subtitle" style="color:#ef4444;">Нельзя использовать [ГМ]</p>'; return; }
+
+    // Проверяем — нет ли уже такого игрока или заявки
+    if (state.players && state.players[name]) {
+        statusEl.innerHTML = '<p class="auth-subtitle" style="color:#ef4444;">Такой игрок уже существует</p>';
+        return;
+    }
+    const existing = Object.values(state.applications || {}).find(a => a.name === name && a.status === 'pending');
+    if (existing) {
+        statusEl.innerHTML = '<p class="auth-subtitle" style="color:#fbbf24;">Заявка уже отправлена, ожидайте одобрения ГМа</p>';
+        return;
+    }
+
+    if (!state.applications) state.applications = {};
+    const id = generateId();
+    state.applications[id] = { name, note, status: 'pending', submittedAt: new Date().toISOString() };
+    saveToStorage();
+
+    document.getElementById('apply-name-input').value = '';
+    document.getElementById('apply-note-input').value = '';
+    statusEl.innerHTML = '<p class="auth-subtitle" style="color:#10b981;">✓ Заявка отправлена! Ожидайте одобрения ГМа.</p>';
+}
+
+// ГМ одобряет заявку
+function approveApplication(id) {
+    const app = state.applications[id];
+    if (!app) return;
+
+    app.status = 'approved';
+    if (!state.players) state.players = {};
+    state.players[app.name] = { registeredAt: new Date().toISOString() };
+    if (!state.profiles[app.name]) state.profiles[app.name] = createEmptyProfile();
+
+    saveToStorage();
+    renderAccountsList();
+    renderPendingApplications();
+    // Показываем кнопки удаления
+    document.querySelectorAll('.gm-only-btn').forEach(b => b.style.display = 'flex');
+}
+
+// ГМ отклоняет заявку
+function rejectApplication(id) {
+    if (!state.applications[id]) return;
+    state.applications[id].status = 'rejected';
+    saveToStorage();
+    renderPendingApplications();
+}
+
+function loginAs(username) {
+    state.currentUser = username;
+    state.isGM = username.includes('[ГМ]');
     if (!state.profiles[username]) {
         state.profiles[username] = createEmptyProfile();
         saveToStorage();
     }
-
-    localStorage.setItem('savedUser', JSON.stringify({ username, isGM }));
+    localStorage.setItem('savedUser', JSON.stringify({ username, isGM: state.isGM }));
     showMainSection();
 }
 
-// Первый запуск — создаём ГМа и пароль
 function firstRunSetup() {
     const name = document.getElementById('first-gm-name').value.trim();
     const pass = document.getElementById('first-gm-password').value.trim();
@@ -200,45 +282,25 @@ function firstRunSetup() {
     showMainSection();
 }
 
-// ГМ разблокирует управление аккаунтами
 function gmUnlock() {
     const pass = document.getElementById('gm-unlock-input').value;
     if (pass === state.gmPassword) {
         document.getElementById('auth-gm-controls').style.display = 'block';
         document.getElementById('gm-unlock-input').value = '';
-        // Показываем кнопки удаления
-        document.querySelectorAll('[id^="del-"]').forEach(btn => btn.style.display = 'flex');
+        document.querySelectorAll('.gm-only-btn').forEach(b => b.style.display = 'flex');
+        renderPendingApplications();
     } else {
         alert('Неверный пароль');
     }
 }
 
-// ГМ создаёт новый аккаунт игрока
-function gmCreateAccount() {
-    const name = document.getElementById('new-account-name').value.trim();
-    if (!name) return;
-    if (name.includes('[ГМ]')) { alert('Нельзя использовать [ГМ] в имени'); return; }
-    if (state.players && state.players[name]) { alert('Такой игрок уже есть'); return; }
-
-    if (!state.players) state.players = {};
-    state.players[name] = { registeredAt: new Date().toISOString() };
-    if (!state.profiles[name]) state.profiles[name] = createEmptyProfile();
-
-    document.getElementById('new-account-name').value = '';
-    saveToStorage();
-    renderAccountsList();
-    // Снова показываем кнопки удаления
-    document.querySelectorAll('[id^="del-"]').forEach(btn => btn.style.display = 'flex');
-}
-
-// ГМ удаляет аккаунт
 function gmDeleteAccount(name) {
-    if (!confirm(`Удалить аккаунт "${name}"? Профиль будет удалён.`)) return;
+    if (!confirm(`Удалить аккаунт "${name}"?`)) return;
     delete state.players[name];
     delete state.profiles[name];
     saveToStorage();
     renderAccountsList();
-    document.querySelectorAll('[id^="del-"]').forEach(btn => btn.style.display = 'flex');
+    document.querySelectorAll('.gm-only-btn').forEach(b => b.style.display = 'flex');
 }
 
 function logout() {
@@ -249,9 +311,7 @@ function logout() {
     showAuthScreen();
 }
 
-function showAuthSection() {
-    showAuthScreen();
-}
+function showAuthSection() { showAuthScreen(); }
 
 function showMainSection() {
     document.getElementById('auth-section').style.display = 'none';
@@ -860,7 +920,8 @@ function getSharedState() {
         diceTemplates:    state.diceTemplates,
         maps:             state.maps,
         gmPassword:       state.gmPassword,
-        players:          state.players
+        players:          state.players,
+        applications:     state.applications
     };
 }
 
@@ -868,7 +929,8 @@ function applySharedState(data) {
     if (!data) return;
     const shared = [
         'rooms','messages','groups','archivedRooms','archivedMessages',
-        'profiles','diceHistory','diceTemplates','maps','gmPassword','players'
+        'profiles','diceHistory','diceTemplates','maps','gmPassword',
+        'players','applications'
     ];
     shared.forEach(key => {
         if (data[key] !== undefined) state[key] = data[key];
@@ -906,20 +968,28 @@ function subscribeToFirebase() {
 
     window.firebaseSubscribe(data => {
         applySharedState(data);
-        // Кэшируем локально
         localStorage.setItem('rpShared', JSON.stringify(data));
 
-        // Обновляем UI если пользователь уже вошёл
         if (state.currentUser) {
             renderRoomTabs();
             renderMessages(state.currentRoomIsArchived || false);
             renderRoomDiceHistory();
             updateOnlineUsers();
-            // Если открыт профиль — обновляем его
+
             if (_editingProfile && document.getElementById('profile-modal').style.display === 'flex') {
-                const canEdit = state.isGM;
-                openProfileFor(_editingProfile, canEdit);
+                openProfileFor(_editingProfile, state.isGM);
             }
+
+            // ГМ: показываем бейдж с количеством новых заявок
+            if (state.isGM) {
+                const pending = Object.values(state.applications || {}).filter(a => a.status === 'pending').length;
+                const btn = document.getElementById('players-btn');
+                if (btn) btn.textContent = pending > 0 ? `👥 Игроки (${pending})` : '👥 Игроки';
+            }
+        } else {
+            // Пользователь на экране входа — обновляем список аккаунтов
+            const accountsVisible = document.getElementById('auth-accounts').style.display !== 'none';
+            if (accountsVisible) renderAccountsList();
         }
     });
 }

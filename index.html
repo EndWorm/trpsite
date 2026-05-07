@@ -33,27 +33,46 @@
 
                 <!-- Список аккаунтов -->
                 <div id="auth-accounts" style="display:none;">
-                    <p class="auth-subtitle">Выберите персонажа</p>
-                    <div id="accounts-list"></div>
-                    <div id="auth-gm-controls" style="display:none; margin-top:12px; border-top:1px solid var(--accent-border); padding-top:12px;">
-                        <p class="auth-subtitle" style="margin-bottom:8px;">Управление (ГМ)</p>
-                        <div style="display:flex; gap:6px; margin-bottom:8px;">
-                            <input type="text" id="new-account-name" placeholder="Имя нового игрока" maxlength="20" style="flex:1; padding:7px 10px; border:1px solid var(--accent-border); border-radius:7px; background:var(--bg-input); color:var(--text); font-size:12px;">
-                            <button onclick="gmCreateAccount()" style="flex-shrink:0;">+ Создать</button>
-                        </div>
-                        <p class="auth-subtitle" style="font-size:10px; opacity:0.6;">Нажмите × рядом с игроком чтобы удалить аккаунт</p>
+                    <!-- Вкладки -->
+                    <div class="auth-tabs">
+                        <button class="auth-tab active" onclick="switchAuthTab('login')">Войти</button>
+                        <button class="auth-tab" onclick="switchAuthTab('apply')">Подать заявку</button>
                     </div>
-                    <div style="margin-top:10px; border-top:1px solid var(--accent-border); padding-top:10px;">
-                        <input type="password" id="gm-unlock-input" placeholder="Пароль ГМа для управления" style="width:100%; padding:7px 10px; border:1px solid rgba(251,191,36,0.3); border-radius:7px; background:var(--bg-input); color:var(--text); font-size:12px; margin-bottom:6px;">
-                        <button id="gm-unlock-btn" onclick="gmUnlock()" style="width:100%; background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#1a1a2e;">🔑 Войти как ГМ</button>
+
+                    <!-- Вкладка: войти -->
+                    <div id="auth-tab-login">
+                        <div id="accounts-list"></div>
+                        <div style="margin-top:10px; border-top:1px solid var(--accent-border); padding-top:10px;">
+                            <input type="password" id="gm-unlock-input" placeholder="Пароль ГМа" style="width:100%; padding:7px 10px; border:1px solid rgba(251,191,36,0.3); border-radius:7px; background:var(--bg-input); color:var(--text); font-size:12px; margin-bottom:6px;">
+                            <button onclick="gmUnlock()" style="width:100%; background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#1a1a2e;">🔑 Войти как ГМ</button>
+                        </div>
+                        <!-- Панель управления ГМа (скрыта до ввода пароля) -->
+                        <div id="auth-gm-controls" style="display:none; margin-top:10px; border-top:1px solid var(--accent-border); padding-top:10px;">
+                            <p class="auth-subtitle" style="margin-bottom:8px;">⚙️ Управление аккаунтами</p>
+                            <div id="pending-list"></div>
+                            <p class="auth-subtitle" style="font-size:10px; opacity:0.6; margin-top:6px;">Нажмите × рядом с игроком чтобы удалить аккаунт</p>
+                        </div>
+                    </div>
+
+                    <!-- Вкладка: заявка -->
+                    <div id="auth-tab-apply" style="display:none;">
+                        <p class="auth-subtitle">Введите желаемое имя персонажа. ГМ рассмотрит заявку.</p>
+                        <input type="text" id="apply-name-input" placeholder="Имя персонажа" maxlength="20"
+                            style="width:100%; padding:9px 11px; margin-bottom:10px; border:1px solid var(--accent-border); border-radius:8px; background:var(--bg-input); color:var(--text); font-size:13px;">
+                        <textarea id="apply-note-input" placeholder="Коротко о персонаже (необязательно)" maxlength="200"
+                            style="width:100%; padding:9px 11px; margin-bottom:10px; border:1px solid var(--accent-border); border-radius:8px; background:var(--bg-input); color:var(--text); font-size:12px; resize:none; height:70px; font-family:inherit;"></textarea>
+                        <button onclick="submitApplication()" style="width:100%; padding:9px; font-size:14px;">📨 Отправить заявку</button>
+                        <div id="apply-status" style="margin-top:10px;"></div>
                     </div>
                 </div>
 
-                <!-- Первый запуск — нет аккаунтов -->
+                <!-- Первый запуск -->
                 <div id="auth-first-run" style="display:none;">
                     <p class="auth-subtitle">Первый запуск — создайте аккаунт ГМа</p>
-                    <input type="text" id="first-gm-name" placeholder="Имя ГМа" maxlength="20" style="width:100%; padding:9px 11px; margin-bottom:10px; border:1px solid var(--accent-border); border-radius:8px; background:var(--bg-input); color:var(--text); font-size:13px;">
-                    <input type="password" id="first-gm-password" placeholder="Придумайте пароль ГМа" style="width:100%; padding:9px 11px; margin-bottom:10px; border:1px solid rgba(251,191,36,0.3); border-radius:8px; background:var(--bg-input); color:var(--text); font-size:13px;">
+                    <input type="text" id="first-gm-name" placeholder="Имя ГМа" maxlength="20"
+                        style="width:100%; padding:9px 11px; margin-bottom:10px; border:1px solid var(--accent-border); border-radius:8px; background:var(--bg-input); color:var(--text); font-size:13px;">
+                    <input type="password" id="first-gm-password" placeholder="Придумайте пароль ГМа"
+                        style="width:100%; padding:9px 11px; margin-bottom:10px; border:1px solid rgba(251,191,36,0.3); border-radius:8px; background:var(--bg-input); color:var(--text); font-size:13px;">
                     <button onclick="firstRunSetup()" style="width:100%; padding:9px; font-size:14px;">Создать и войти</button>
                 </div>
             </div>

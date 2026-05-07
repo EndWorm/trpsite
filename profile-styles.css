@@ -1580,3 +1580,52 @@
     background: rgba(239, 68, 68, 0.35);
     transform: none;
 }
+
+/* ── Вкладки экрана входа ─────────────────────────────────────────────────── */
+
+.auth-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 14px;
+    background: rgba(15, 12, 41, 0.4);
+    border-radius: 8px;
+    padding: 3px;
+}
+
+.auth-tab {
+    flex: 1;
+    padding: 6px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    background: transparent;
+    color: var(--text-muted, #6b7280);
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+    box-shadow: none;
+    transform: none !important;
+}
+.auth-tab:hover { background: rgba(139,92,246,0.1); color: #a78bfa; }
+.auth-tab.active { background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: white; }
+
+/* ── Заявки на вступление ─────────────────────────────────────────────────── */
+
+.pending-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 7px 9px;
+    border-radius: 7px;
+    background: rgba(251, 191, 36, 0.07);
+    border: 1px solid rgba(251, 191, 36, 0.2);
+    margin-bottom: 5px;
+}
+
+.pending-info { flex: 1; min-width: 0; }
+.pending-name { font-size: 13px; font-weight: 600; color: #e0e0e0; }
+.pending-note { font-size: 11px; color: #6b7280; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.pending-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.pending-actions .gm-btn { padding: 3px 9px; font-size: 13px; font-weight: 700; }
