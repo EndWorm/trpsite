@@ -1,7 +1,7 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getDatabase, ref, set, onValue, get } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
-const app = initializeApp({ databaseURL: 'https://trpendowmr-default-rtdb.firebaseio.com' });
+const app = initializeApp({ databaseURL: 'https://trpendowmr-default-rtdb.europe-west1.firebasedatabase.app' });
 const db  = getDatabase(app);
 
 let _saveTimer = null;

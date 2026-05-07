@@ -30,26 +30,18 @@ document.addEventListener('DOMContentLoaded', () => {
         subscribeToFirebase();
     };
 
-    const loadFromFirebase = () => {
-        window.firebaseLoad(data => {
-            if (data) applySharedState(data);
-            proceed();
-        });
-    };
-
-    // Ждём пока ES-модуль firebase.js выставит флаг _firebaseReady
-    let attempts = 0;
-    const waitForFirebase = setInterval(() => {
-        attempts++;
-        if (window._firebaseReady) {
-            clearInterval(waitForFirebase);
-            loadFromFirebase();
-        } else if (attempts > 50) {
-            // 5 секунд прошло — работаем без Firebase
-            clearInterval(waitForFirebase);
+    // ES-модуль firebase.js выполняется асинхронно после парсинга —
+    // даём ему 3 секунды, потом запускаемся в любом случае
+    setTimeout(() => {
+        if (window.firebaseLoad) {
+            window.firebaseLoad(data => {
+                if (data) applySharedState(data);
+                proceed();
+            });
+        } else {
             proceed();
         }
-    }, 100);
+    }, 300);
 });
 
 function showLoadingIndicator(show) {
