@@ -1629,3 +1629,117 @@
 
 .pending-actions { display: flex; gap: 4px; flex-shrink: 0; }
 .pending-actions .gm-btn { padding: 3px 9px; font-size: 13px; font-weight: 700; }
+
+/* ── Мобильная адаптация экрана входа ────────────────────────────────────── */
+
+@media (max-width: 600px) {
+    /* Форма входа — на весь экран */
+    #auth-section {
+        align-items: flex-end;
+        padding: 0;
+    }
+
+    .auth-form {
+        width: 100%;
+        max-width: 100%;
+        border-radius: 20px 20px 0 0;
+        padding: 20px 16px 32px;
+        max-height: 90dvh;
+        overflow-y: auto;
+        border-bottom: none;
+    }
+
+    .auth-form h2 {
+        font-size: 18px;
+        margin-bottom: 14px;
+    }
+
+    /* Вкладки — крупнее для пальцев */
+    .auth-tabs {
+        margin-bottom: 16px;
+    }
+
+    .auth-tab {
+        padding: 10px 6px;
+        font-size: 13px;
+    }
+
+    /* Список аккаунтов — крупнее */
+    .account-item {
+        padding: 11px 12px;
+    }
+
+    .account-avatar {
+        width: 42px;
+        height: 42px;
+    }
+
+    .account-name {
+        font-size: 15px;
+    }
+
+    /* Заявки */
+    .pending-item {
+        padding: 9px 10px;
+    }
+
+    .pending-name {
+        font-size: 14px;
+    }
+
+    /* Поля ввода */
+    #apply-name-input,
+    #apply-note-input,
+    #gm-unlock-input,
+    #first-gm-name,
+    #first-gm-password {
+        font-size: 16px !important; /* предотвращает zoom на iOS */
+        padding: 11px 12px !important;
+    }
+
+    /* Кнопки */
+    #auth-accounts button,
+    #auth-first-run button {
+        padding: 11px !important;
+        font-size: 14px !important;
+    }
+
+    /* Список аккаунтов — скролл */
+    #accounts-list {
+        max-height: 40dvh;
+    }
+}
+
+/* ── Секретная кнопка ГМа ─────────────────────────────────────────────────── */
+.gm-secret-btn {
+    background: transparent;
+    border: none;
+    color: rgba(139, 92, 246, 0.2);
+    font-size: 13px;
+    padding: 2px 4px;
+    cursor: pointer;
+    box-shadow: none;
+    transition: color 0.2s;
+    transform: none !important;
+}
+.gm-secret-btn:hover {
+    color: rgba(139, 92, 246, 0.5);
+    opacity: 1;
+}
+
+/* ── Секретная кнопка ГМа ─────────────────────────────────────────────────── */
+#gm-secret-trigger {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    width: 48px;
+    height: 48px;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    cursor: default;
+    z-index: 9998;
+    opacity: 0;
+    padding: 0;
+    transform: none !important;
+}

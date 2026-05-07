@@ -132,15 +132,11 @@ function showAuthScreen() {
     document.getElementById('auth-loading').style.display = 'none';
     document.getElementById('auth-first-run').style.display = 'none';
     document.getElementById('auth-accounts').style.display = 'none';
-    document.getElementById('auth-gm-controls').style.display = 'none';
+    document.getElementById('gm-secret-panel').style.display = 'none';
 
-    const players = state.players || {};
-    if (Object.keys(players).length === 0 && !state.gmPassword) {
-        document.getElementById('auth-first-run').style.display = 'block';
-    } else {
-        renderAccountsList();
-        document.getElementById('auth-accounts').style.display = 'block';
-    }
+    // Всегда показываем экран аккаунтов
+    renderAccountsList();
+    document.getElementById('auth-accounts').style.display = 'block';
 }
 
 function renderAccountsList() {
@@ -174,27 +170,26 @@ function renderAccountsList() {
 function renderPendingApplications() {
     const apps = state.applications || {};
     const pending = Object.entries(apps).filter(([, a]) => a.status === 'pending');
-    const el = document.getElementById('pending-list');
+    const el = document.getElementById('pm-pending-list');
     if (!el) return;
 
     if (pending.length === 0) {
-        el.innerHTML = '<p class="auth-subtitle" style="font-size:11px; margin-bottom:6px;">Нет новых заявок</p>';
+        el.innerHTML = '<div class="rs-empty">Нет новых заявок</div>';
         return;
     }
 
-    el.innerHTML = `<p class="auth-subtitle" style="font-size:11px; margin-bottom:6px;">📨 Заявки на вступление:</p>` +
-        pending.map(([id, app]) => `
-            <div class="pending-item">
-                <div class="pending-info">
-                    <div class="pending-name">${app.name}</div>
-                    ${app.note ? `<div class="pending-note">${app.note}</div>` : ''}
-                </div>
-                <div class="pending-actions">
-                    <button class="gm-btn warning" onclick="approveApplication('${id}')">✓</button>
-                    <button class="gm-btn danger"  onclick="rejectApplication('${id}')">×</button>
-                </div>
-            </div>`
-        ).join('');
+    el.innerHTML = pending.map(([id, app]) => `
+        <div class="pending-item">
+            <div class="pending-info">
+                <div class="pending-name">${app.name}</div>
+                ${app.note ? `<div class="pending-note">${app.note}</div>` : ''}
+            </div>
+            <div class="pending-actions">
+                <button class="gm-btn warning" onclick="approveApplication('${id}')">✓ Принять</button>
+                <button class="gm-btn danger"  onclick="rejectApplication('${id}')">× Отклонить</button>
+            </div>
+        </div>`
+    ).join('');
 }
 
 // Игрок подаёт заявку
@@ -238,18 +233,19 @@ function approveApplication(id) {
     if (!state.profiles[app.name]) state.profiles[app.name] = createEmptyProfile();
 
     saveToStorage();
-    renderAccountsList();
-    renderPendingApplications();
-    // Показываем кнопки удаления
-    document.querySelectorAll('.gm-only-btn').forEach(b => b.style.display = 'flex');
+    openPlayersModal(); // перерисовываем модалку
+    switchPlayersTab('applications'); // остаёмся на вкладке заявок
 }
 
-// ГМ отклоняет заявку
 function rejectApplication(id) {
     if (!state.applications[id]) return;
     state.applications[id].status = 'rejected';
     saveToStorage();
     renderPendingApplications();
+    // Обновляем бейдж
+    const pending = Object.values(state.applications || {}).filter(a => a.status === 'pending').length;
+    const badge = document.getElementById('pm-apps-badge');
+    if (badge) badge.textContent = pending > 0 ? `(${pending})` : '';
 }
 
 function loginAs(username) {
@@ -284,14 +280,56 @@ function firstRunSetup() {
 
 function gmUnlock() {
     const pass = document.getElementById('gm-unlock-input').value;
-    if (pass === state.gmPassword) {
-        document.getElementById('auth-gm-controls').style.display = 'block';
-        document.getElementById('gm-unlock-input').value = '';
-        document.querySelectorAll('.gm-only-btn').forEach(b => b.style.display = 'flex');
-        renderPendingApplications();
-    } else {
-        alert('Неверный пароль');
+    if (pass !== state.gmPassword) {
+        // Если пароль не совпадает — возможно это первый запуск и пароль ещё не задан
+        // Проверяем: если gmPassword ещё дефолтный или пустой — устанавливаем новый
+        if (!state.gmPassword || state.gmPassword === 'gm2024') {
+            // Первый ввод пароля — устанавливаем его как пароль ГМа
+            if (pass.length < 3) { alert('Пароль должен быть не менее 3 символов'); return; }
+            state.gmPassword = pass;
+        } else {
+            alert('Неверный пароль');
+            return;
+        }
     }
+
+    document.getElementById('gm-unlock-input').value = '';
+    document.getElementById('gm-secret-panel').style.display = 'none';
+
+    // Ищем существующий аккаунт ГМа
+    let gmName = Object.keys(state.players || {}).find(n => n.includes('[ГМ]'));
+
+    if (!gmName) {
+        // Создаём аккаунт ГМа автоматически
+        gmName = 'ГМ [ГМ]';
+        if (!state.players) state.players = {};
+        state.players[gmName] = { registeredAt: new Date().toISOString(), isGM: true };
+        if (!state.profiles[gmName]) state.profiles[gmName] = createEmptyProfile();
+        saveToStorage();
+        // Обновляем список аккаунтов
+        renderAccountsList();
+    }
+
+    loginAs(gmName);
+}
+
+function toggleGmInput() {
+    // Показываем только если открыт экран входа
+    if (document.getElementById('auth-section').style.display === 'none') return;
+    const panel = document.getElementById('gm-secret-panel');
+    if (!panel) return;
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    if (panel.style.display === 'block') {
+        document.getElementById('gm-unlock-input').focus();
+    }
+}
+
+function switchPlayersTab(tab) {
+    document.getElementById('pm-tab-players').style.display     = tab === 'players'      ? 'block' : 'none';
+    document.getElementById('pm-tab-applications').style.display = tab === 'applications' ? 'block' : 'none';
+    document.getElementById('pm-tab-players-btn').classList.toggle('active', tab === 'players');
+    document.getElementById('pm-tab-apps-btn').classList.toggle('active',    tab === 'applications');
+    if (tab === 'applications') renderPendingApplications();
 }
 
 function gmDeleteAccount(name) {
@@ -1148,12 +1186,15 @@ window.addEventListener('resize', updateMobileTabbar);
 function openPlayersModal() {
     if (!state.isGM) return;
 
+    // Сбрасываем на вкладку персонажей
+    switchPlayersTab('players');
+
     const listEl = document.getElementById('players-list');
     const players = state.players || {};
     const names = Object.keys(players).filter(n => !n.includes('[ГМ]'));
 
     if (names.length === 0) {
-        listEl.innerHTML = '<div class="rs-empty">Нет зарегистрированных игроков</div>';
+        listEl.innerHTML = '<div class="rs-empty">Нет игроков</div>';
     } else {
         listEl.innerHTML = names.map(name => {
             const profile = state.profiles[name];
@@ -1169,12 +1210,18 @@ function openPlayersModal() {
                         <div class="player-list-name">${name}</div>
                         <div class="player-list-stats">Ур. ${level} · HP ${hp}</div>
                     </div>
-                    <button class="gm-btn warning" onclick="openPlayerProfile('${name.replace(/'/g,"\\'")}'); closeModal('players-modal');">
-                        ✏️ Профиль
-                    </button>
+                    <div style="display:flex;gap:5px;flex-shrink:0;">
+                        <button class="gm-btn warning" onclick="openPlayerProfile('${name.replace(/'/g,"\\'")}'); closeModal('players-modal');">✏️</button>
+                        <button class="gm-btn danger"  onclick="gmDeleteAccount('${name.replace(/'/g,"\\'")}')">×</button>
+                    </div>
                 </div>`;
         }).join('');
     }
+
+    // Бейдж заявок
+    const pending = Object.values(state.applications || {}).filter(a => a.status === 'pending').length;
+    const badge = document.getElementById('pm-apps-badge');
+    if (badge) badge.textContent = pending > 0 ? `(${pending})` : '';
 
     openModal('players-modal');
 }

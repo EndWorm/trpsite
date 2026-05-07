@@ -42,16 +42,6 @@
                     <!-- Вкладка: войти -->
                     <div id="auth-tab-login">
                         <div id="accounts-list"></div>
-                        <div style="margin-top:10px; border-top:1px solid var(--accent-border); padding-top:10px;">
-                            <input type="password" id="gm-unlock-input" placeholder="Пароль ГМа" style="width:100%; padding:7px 10px; border:1px solid rgba(251,191,36,0.3); border-radius:7px; background:var(--bg-input); color:var(--text); font-size:12px; margin-bottom:6px;">
-                            <button onclick="gmUnlock()" style="width:100%; background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#1a1a2e;">🔑 Войти как ГМ</button>
-                        </div>
-                        <!-- Панель управления ГМа (скрыта до ввода пароля) -->
-                        <div id="auth-gm-controls" style="display:none; margin-top:10px; border-top:1px solid var(--accent-border); padding-top:10px;">
-                            <p class="auth-subtitle" style="margin-bottom:8px;">⚙️ Управление аккаунтами</p>
-                            <div id="pending-list"></div>
-                            <p class="auth-subtitle" style="font-size:10px; opacity:0.6; margin-top:6px;">Нажмите × рядом с игроком чтобы удалить аккаунт</p>
-                        </div>
                     </div>
 
                     <!-- Вкладка: заявка -->
@@ -64,17 +54,18 @@
                         <button onclick="submitApplication()" style="width:100%; padding:9px; font-size:14px;">📨 Отправить заявку</button>
                         <div id="apply-status" style="margin-top:10px;"></div>
                     </div>
+
+                    <!-- Секретная кнопка ГМа — правый нижний угол экрана -->
+                    <div id="gm-secret-panel" style="display:none; margin-top:6px;">
+                        <input type="password" id="gm-unlock-input" placeholder="Пароль ГМа"
+                            style="width:100%; padding:7px 10px; border:1px solid rgba(251,191,36,0.3); border-radius:7px; background:var(--bg-input); color:var(--text); font-size:12px; margin-bottom:6px;"
+                            onkeypress="if(event.key==='Enter') gmUnlock()">
+                        <button onclick="gmUnlock()" style="width:100%; background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#1a1a2e; padding:7px;">Войти как ГМ</button>
+                    </div>
                 </div>
 
-                <!-- Первый запуск -->
-                <div id="auth-first-run" style="display:none;">
-                    <p class="auth-subtitle">Первый запуск — создайте аккаунт ГМа</p>
-                    <input type="text" id="first-gm-name" placeholder="Имя ГМа" maxlength="20"
-                        style="width:100%; padding:9px 11px; margin-bottom:10px; border:1px solid var(--accent-border); border-radius:8px; background:var(--bg-input); color:var(--text); font-size:13px;">
-                    <input type="password" id="first-gm-password" placeholder="Придумайте пароль ГМа"
-                        style="width:100%; padding:9px 11px; margin-bottom:10px; border:1px solid rgba(251,191,36,0.3); border-radius:8px; background:var(--bg-input); color:var(--text); font-size:13px;">
-                    <button onclick="firstRunSetup()" style="width:100%; padding:9px; font-size:14px;">Создать и войти</button>
-                </div>
+                <!-- Первый запуск — скрыт, больше не используется -->
+                <div id="auth-first-run" style="display:none;"></div>
             </div>
         </div>
 
@@ -629,13 +620,30 @@
 
     <!-- Модальное окно списка игроков (ГМ) -->
     <div id="players-modal" class="modal" style="display:none;">
-        <div class="modal-content" style="max-width:480px;">
+        <div class="modal-content" style="max-width:500px;">
             <div class="modal-header">
                 <h2>👥 Игроки</h2>
                 <button onclick="closeModal('players-modal')" class="close-btn">×</button>
             </div>
             <div class="modal-body">
-                <div id="players-list"></div>
+                <!-- Вкладки -->
+                <div class="auth-tabs" style="margin-bottom:14px;">
+                    <button class="auth-tab active" id="pm-tab-players-btn" onclick="switchPlayersTab('players')">Персонажи</button>
+                    <button class="auth-tab" id="pm-tab-apps-btn" onclick="switchPlayersTab('applications')">Заявки <span id="pm-apps-badge"></span></button>
+                </div>
+
+                <!-- Вкладка: персонажи -->
+                <div id="pm-tab-players">
+                    <div id="players-list"></div>
+                    <div style="margin-top:12px; border-top:1px solid var(--accent-border); padding-top:12px;">
+                        <p class="auth-subtitle" style="font-size:10px; opacity:0.6;">Нажмите × рядом с игроком чтобы удалить аккаунт</p>
+                    </div>
+                </div>
+
+                <!-- Вкладка: заявки -->
+                <div id="pm-tab-applications" style="display:none;">
+                    <div id="pm-pending-list"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -650,5 +658,8 @@
 
     <script type="module" src="firebase.js"></script>
     <script src="script.js"></script>
+
+    <!-- Секретная кнопка ГМа — правый нижний угол, полностью прозрачная -->
+    <button id="gm-secret-trigger" onclick="toggleGmInput()" aria-hidden="true"></button>
 </body>
 </html>
