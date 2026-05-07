@@ -14,6 +14,7 @@
             <div id="user-info">
                 <span id="username-display"></span>
                 <button id="map-editor-btn" style="display: none;" onclick="openMapEditor()">🗺️ Карты</button>
+                <button id="players-btn" style="display: none;" onclick="openPlayersModal()">👥 Игроки</button>
                 <button id="dice-panel-btn" style="display: none;">🎲 Дайсы</button>
                 <button id="profile-btn" style="display: none;">👤 Профиль</button>
                 <button id="logout-btn" style="display: none;">Выйти</button>
@@ -22,15 +23,25 @@
 
         <div id="auth-section">
             <div class="auth-form">
-                <h2>Вход</h2>
-                <input type="text" id="username-input" placeholder="Введите имя персонажа" maxlength="20">
-                <input type="password" id="password-input" placeholder="Пароль ГМа (необязательно)">
-                <button id="login-btn">Войти</button>
-                <div class="gm-hint">💡 Оставьте пароль пустым для входа как игрок</div>
+                <h2>Текстовый РП</h2>
+                <div id="auth-register" style="display:none;">
+                    <p class="auth-subtitle">Первый вход — выберите имя персонажа</p>
+                    <input type="text" id="username-input" placeholder="Имя персонажа" maxlength="20">
+                    <input type="password" id="password-input" placeholder="Пароль ГМа (если вы ГМ)">
+                    <button id="login-btn">Зарегистрироваться и войти</button>
+                    <div class="gm-hint">💡 Имя нельзя будет изменить</div>
+                </div>
+                <div id="auth-loading" style="display:none;">
+                    <div class="loading-spinner" style="margin:0 auto;"></div>
+                    <p class="auth-subtitle" style="margin-top:10px;">Подключение к серверу...</p>
+                </div>
             </div>
         </div>
 
         <div id="main-section" style="display: none;">
+            <!-- Мобильный оверлей под боковыми панелями -->
+            <div class="mobile-overlay" id="mobile-overlay" onclick="closeMobilePanels()"></div>
+
             <div class="workspace">
                 <!-- Боковая панель групп и комнат -->
                 <div class="rooms-sidebar" id="rooms-sidebar">
@@ -142,6 +153,26 @@
                 </div>
                 </div> <!-- /main-content -->
             </div> <!-- /workspace -->
+
+            <!-- Нижний таббар (только мобильный) -->
+            <nav class="mobile-tabbar" id="mobile-tabbar">
+                <button class="mobile-tab" id="tab-rooms" onclick="mobileTab('rooms')">
+                    <span class="mobile-tab-icon">🏠</span>
+                    Комнаты
+                </button>
+                <button class="mobile-tab active" id="tab-chat" onclick="mobileTab('chat')">
+                    <span class="mobile-tab-icon">💬</span>
+                    Чат
+                </button>
+                <button class="mobile-tab" id="tab-dice" onclick="mobileTab('dice')">
+                    <span class="mobile-tab-icon">🎲</span>
+                    Дайсы
+                </button>
+                <button class="mobile-tab" id="tab-profile" onclick="openProfile()">
+                    <span class="mobile-tab-icon">👤</span>
+                    Профиль
+                </button>
+            </nav>
         </div>
     </div>
 
@@ -552,6 +583,19 @@
                     <div id="rs-online-users" class="rs-users-list"></div>
                 </div>
 
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно списка игроков (ГМ) -->
+    <div id="players-modal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:480px;">
+            <div class="modal-header">
+                <h2>👥 Игроки</h2>
+                <button onclick="closeModal('players-modal')" class="close-btn">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="players-list"></div>
             </div>
         </div>
     </div>

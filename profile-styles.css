@@ -1462,3 +1462,47 @@
     cursor: default;
     background: rgba(15, 12, 41, 0.3);
 }
+
+/* ── Список игроков ───────────────────────────────────────────────────────── */
+
+.player-list-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: rgba(15, 12, 41, 0.5);
+    border: 1px solid rgba(139, 92, 246, 0.15);
+    margin-bottom: 6px;
+    transition: border-color 0.2s;
+}
+.player-list-item:hover { border-color: rgba(139, 92, 246, 0.35); }
+
+.player-list-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+.player-list-avatar--default {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(139, 92, 246, 0.15);
+    font-size: 16px;
+}
+
+.player-list-info { flex: 1; min-width: 0; }
+.player-list-name  { font-size: 13px; font-weight: 600; color: #e0e0e0; }
+.player-list-stats { font-size: 11px; color: #6b7280; margin-top: 1px; }
+
+/* Подзаголовок формы входа */
+.auth-subtitle {
+    font-size: 12px;
+    color: #a78bfa;
+    text-align: center;
+    margin-bottom: 14px;
+    opacity: 0.85;
+}

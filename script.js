@@ -13,7 +13,8 @@ const state = {
     diceHistory: [],
     diceTemplates: {},
     maps: [],
-    groups: []          // { id, name, collapsed }
+    groups: [],         // { id, name, collapsed }
+    players: {}         // { username: { registeredAt } }
 };
 
 // Инициализация
@@ -22,16 +23,24 @@ document.addEventListener('DOMContentLoaded', () => {
     initEventListeners();
     initAccordions();
 
-    showLoadingIndicator(true);
+    // Показываем экран загрузки пока Firebase не ответит
+    document.getElementById('auth-section').style.display = 'flex';
+    document.getElementById('auth-register').style.display = 'none';
+    document.getElementById('auth-loading').style.display = 'block';
 
     const proceed = () => {
         showLoadingIndicator(false);
-        if (state.currentUser) showMainSection();
+        if (state.currentUser) {
+            // Есть сохранённый пользователь — автовход
+            showMainSection();
+        } else {
+            // Первый визит — показываем форму регистрации
+            document.getElementById('auth-loading').style.display = 'none';
+            document.getElementById('auth-register').style.display = 'block';
+        }
         subscribeToFirebase();
     };
 
-    // ES-модуль firebase.js выполняется асинхронно после парсинга —
-    // даём ему 3 секунды, потом запускаемся в любом случае
     setTimeout(() => {
         if (window.firebaseLoad) {
             window.firebaseLoad(data => {
@@ -100,58 +109,63 @@ function initEventListeners() {
 function login() {
     const username = document.getElementById('username-input').value.trim();
     const password = document.getElementById('password-input').value;
-    
-    if (!username) {
-        alert('Введите имя персонажа');
-        return;
+
+    if (!username) { alert('Введите имя персонажа'); return; }
+
+    // Проверяем уникальность имени среди игроков (не ГМов)
+    const isGM = (password === state.gmPassword);
+    const finalName = isGM ? username + ' [ГМ]' : username;
+
+    if (!isGM && state.players && state.players[finalName] === undefined) {
+        // Новый игрок — просто регистрируем
+    } else if (!isGM && state.players && state.players[finalName] !== undefined) {
+        // Имя уже занято другим игроком — проверяем совпадение
+        // (разрешаем — это тот же игрок перерегистрируется)
     }
-    
-    // Проверка пароля ГМа
-    if (password === state.gmPassword) {
-        state.isGM = true;
-        state.currentUser = username + ' [ГМ]';
-    } else {
-        state.isGM = false;
-        state.currentUser = username;
+
+    state.isGM = isGM;
+    state.currentUser = finalName;
+
+    // Создаём профиль если нет
+    if (!state.profiles[finalName]) {
+        state.profiles[finalName] = createEmptyProfile();
     }
-    
-    // Создаем профиль если его нет
-    if (!state.profiles[state.currentUser]) {
-        state.profiles[state.currentUser] = {
-            bio: '',
-            avatar: '',
-            stats: {
-                hpCurrent: 0,
-                hpMax: 0,
-                mpCurrent: 0,
-                mpMax: 0,
-                strength: 0,
-                perception: 0,
-                endurance: 0,
-                charisma: 0,
-                intelligence: 0,
-                agility: 0,
-                luck: 0,
-                attack: 0,
-                rangedAttack: 0,
-                magicAttack: 0,
-                defense: 0,
-                magicDefense: 0,
-                level: 0,
-                expCurrent: 0,
-                expMax: 100
-            },
-            inventory: [],
-            messageHistory: []
-        };
+
+    // Регистрируем игрока в общем списке
+    if (!state.players) state.players = {};
+    if (!state.players[finalName]) {
+        state.players[finalName] = { registeredAt: new Date().toISOString() };
     }
-    
+
+    // Сохраняем имя навсегда в localStorage
+    localStorage.setItem('savedUser', JSON.stringify({
+        username: finalName,
+        isGM: isGM
+    }));
+
     saveToStorage();
     showMainSection();
 }
 
+function createEmptyProfile() {
+    return {
+        bio: '', avatar: '',
+        stats: {
+            hpCurrent: 0, hpMax: 0, mpCurrent: 0, mpMax: 0,
+            strength: 0, perception: 0, endurance: 0, charisma: 0,
+            intelligence: 0, agility: 0, luck: 0,
+            attack: 0, rangedAttack: 0, magicAttack: 0,
+            defense: 0, magicDefense: 0,
+            level: 0, expCurrent: 0, expMax: 100
+        },
+        inventory: [],
+        messageHistory: []
+    };
+}
+
 function logout() {
-    if (confirm('Вы уверены, что хотите выйти?')) {
+    if (confirm('Выйти из аккаунта? При следующем входе потребуется снова ввести имя.')) {
+        localStorage.removeItem('savedUser');
         state.currentUser = null;
         state.currentRoom = null;
         state.isGM = false;
@@ -161,12 +175,16 @@ function logout() {
 }
 
 function showAuthSection() {
-    document.getElementById('auth-section').style.display = 'block';
+    document.getElementById('auth-section').style.display = 'flex';
     document.getElementById('main-section').style.display = 'none';
     document.getElementById('logout-btn').style.display = 'none';
     document.getElementById('profile-btn').style.display = 'none';
+    document.getElementById('players-btn').style.display = 'none';
     document.getElementById('dice-panel-btn').style.display = 'none';
     document.getElementById('username-display').textContent = '';
+    // Показываем форму регистрации
+    document.getElementById('auth-register').style.display = 'block';
+    document.getElementById('auth-loading').style.display = 'none';
 }
 
 function showMainSection() {
@@ -178,16 +196,18 @@ function showMainSection() {
     document.getElementById('dice-panel-btn').style.display = 'none';
     document.getElementById('username-display').textContent = state.currentUser;
 
-    // Кнопка настроек комнаты — только для ГМа
     const settingsBtn = document.getElementById('room-settings-btn');
     const createRoomInline = document.getElementById('create-room-inline');
+    const playersBtn = document.getElementById('players-btn');
 
     if (state.isGM) {
         settingsBtn.style.display = 'flex';
         createRoomInline.style.display = 'flex';
+        playersBtn.style.display = 'block';
     } else {
         settingsBtn.style.display = 'none';
         createRoomInline.style.display = 'none';
+        playersBtn.style.display = 'none';
     }
 
     if (state.rooms.length === 0 && state.archivedRooms.length === 0 && state.isGM) {
@@ -204,6 +224,7 @@ function showMainSection() {
     }
 
     renderRoomDiceHistory();
+    updateMobileTabbar();
 }
 
 function createDefaultRooms() {
@@ -763,16 +784,17 @@ function kickUser() {
 // ── Что синхронизируется через Firebase (общее для всех) ─────────────────────
 function getSharedState() {
     return {
-        rooms:           state.rooms,
-        messages:        state.messages,
-        groups:          state.groups,
-        archivedRooms:   state.archivedRooms,
+        rooms:            state.rooms,
+        messages:         state.messages,
+        groups:           state.groups,
+        archivedRooms:    state.archivedRooms,
         archivedMessages: state.archivedMessages,
-        profiles:        state.profiles,
-        diceHistory:     state.diceHistory,
-        diceTemplates:   state.diceTemplates,
-        maps:            state.maps,
-        gmPassword:      state.gmPassword
+        profiles:         state.profiles,
+        diceHistory:      state.diceHistory,
+        diceTemplates:    state.diceTemplates,
+        maps:             state.maps,
+        gmPassword:       state.gmPassword,
+        players:          state.players
     };
 }
 
@@ -780,7 +802,7 @@ function applySharedState(data) {
     if (!data) return;
     const shared = [
         'rooms','messages','groups','archivedRooms','archivedMessages',
-        'profiles','diceHistory','diceTemplates','maps','gmPassword'
+        'profiles','diceHistory','diceTemplates','maps','gmPassword','players'
     ];
     shared.forEach(key => {
         if (data[key] !== undefined) state[key] = data[key];
@@ -788,14 +810,7 @@ function applySharedState(data) {
 }
 
 function saveToStorage() {
-    // Личные данные — только localStorage
-    localStorage.setItem('rpUser', JSON.stringify({
-        currentUser: state.currentUser,
-        currentRoom: state.currentRoom,
-        isGM:        state.isGM
-    }));
-
-    // Общие данные — Firebase + localStorage как кэш
+    // Личные данные — только localStorage (не меняем savedUser здесь)
     const shared = getSharedState();
     localStorage.setItem('rpShared', JSON.stringify(shared));
     if (window.firebaseSave) window.firebaseSave(shared);
@@ -803,12 +818,16 @@ function saveToStorage() {
 
 function loadFromStorage() {
     // Личные данные из localStorage
-    const user = localStorage.getItem('rpUser');
+    const user = localStorage.getItem('savedUser');
     if (user) {
-        try { Object.assign(state, JSON.parse(user)); } catch(e) {}
+        try {
+            const u = JSON.parse(user);
+            state.currentUser = u.username;
+            state.isGM = u.isGM || false;
+        } catch(e) {}
     }
 
-    // Общие данные — сначала кэш, потом Firebase перезапишет
+    // Общие данные — кэш (Firebase перезапишет актуальным)
     const cached = localStorage.getItem('rpShared');
     if (cached) {
         try { applySharedState(JSON.parse(cached)); } catch(e) {}
@@ -942,6 +961,87 @@ function deleteArchivedRoom(roomId) {
     renderMessages();
 }
 
+
+// ── Мобильная навигация ───────────────────────────────────────────────────────
+
+function mobileTab(tab) {
+    const sidebar  = document.getElementById('rooms-sidebar');
+    const dice     = document.querySelector('.dice-sidebar');
+    const overlay  = document.getElementById('mobile-overlay');
+
+    // Сбрасываем все
+    sidebar.classList.remove('mobile-open');
+    dice.classList.remove('mobile-open');
+    overlay.classList.remove('active');
+
+    document.querySelectorAll('.mobile-tab').forEach(t => t.classList.remove('active'));
+
+    if (tab === 'rooms') {
+        sidebar.classList.add('mobile-open');
+        overlay.classList.add('active');
+        document.getElementById('tab-rooms').classList.add('active');
+    } else if (tab === 'dice') {
+        dice.classList.add('mobile-open');
+        overlay.classList.add('active');
+        document.getElementById('tab-dice').classList.add('active');
+    } else {
+        // chat
+        document.getElementById('tab-chat').classList.add('active');
+    }
+}
+
+function closeMobilePanels() {
+    document.querySelector('.rooms-sidebar')?.classList.remove('mobile-open');
+    document.querySelector('.dice-sidebar')?.classList.remove('mobile-open');
+    document.getElementById('mobile-overlay')?.classList.remove('active');
+    document.getElementById('tab-chat')?.classList.add('active');
+    document.querySelectorAll('.mobile-tab').forEach(t => {
+        if (t.id !== 'tab-chat') t.classList.remove('active');
+    });
+}
+
+// Скрываем таббар на десктопе
+function updateMobileTabbar() {
+    const tabbar = document.getElementById('mobile-tabbar');
+    if (!tabbar) return;
+    tabbar.style.display = window.innerWidth <= 600 ? 'flex' : 'none';
+}
+
+window.addEventListener('resize', updateMobileTabbar);
+
+function openPlayersModal() {
+    if (!state.isGM) return;
+
+    const listEl = document.getElementById('players-list');
+    const players = state.players || {};
+    const names = Object.keys(players).filter(n => !n.includes('[ГМ]'));
+
+    if (names.length === 0) {
+        listEl.innerHTML = '<div class="rs-empty">Нет зарегистрированных игроков</div>';
+    } else {
+        listEl.innerHTML = names.map(name => {
+            const profile = state.profiles[name];
+            const level = profile?.stats?.level || 0;
+            const hp = profile ? `${profile.stats.hpCurrent}/${profile.stats.hpMax}` : '—';
+            const avatar = profile?.avatar
+                ? `<img src="${profile.avatar}" class="player-list-avatar">`
+                : `<div class="player-list-avatar player-list-avatar--default">👤</div>`;
+            return `
+                <div class="player-list-item">
+                    ${avatar}
+                    <div class="player-list-info">
+                        <div class="player-list-name">${name}</div>
+                        <div class="player-list-stats">Ур. ${level} · HP ${hp}</div>
+                    </div>
+                    <button class="gm-btn warning" onclick="openPlayerProfile('${name.replace(/'/g,"\\'")}'); closeModal('players-modal');">
+                        ✏️ Профиль
+                    </button>
+                </div>`;
+        }).join('');
+    }
+
+    openModal('players-modal');
+}
 
 function openRoomSettings() {
     if (!state.isGM || !state.currentRoom) return;

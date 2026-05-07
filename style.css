@@ -691,21 +691,174 @@ textarea::placeholder { color: var(--text-muted); }
 
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 
-/* Планшет — убираем боковую панель дайсов */
+/* Планшет */
 @media (max-width: 900px) {
-    .workspace { grid-template-columns: 170px 1fr; }
-    .main-content { grid-template-columns: 1fr; }
-    .dice-sidebar { display: none; }
+    .workspace        { grid-template-columns: 160px 1fr; }
+    .main-content     { grid-template-columns: 1fr; }
+    .dice-sidebar     { display: none; }
 }
 
-/* Мобильный */
+/* ── Мобильный (≤600px) ───────────────────────────────────────────────────── */
 @media (max-width: 600px) {
-    .container { padding: 4px; gap: 4px; }
-    .workspace { grid-template-columns: 1fr; }
-    .rooms-sidebar { max-height: 160px; }
+
+    /* Убираем overflow:hidden с body — нужен scroll внутри панелей */
+    body { overflow: hidden; }
+
+    .container {
+        padding: 0;
+        gap: 0;
+        height: 100dvh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Header — компактный */
+    header {
+        border-radius: 0;
+        padding: 6px 10px;
+        flex-shrink: 0;
+        border-left: none;
+        border-right: none;
+        border-top: none;
+    }
     header h1 { font-size: 14px; }
-    button { padding: 4px 8px; font-size: 11px; }
-    #message-text { height: 44px; min-height: 44px; }
+    #user-info { gap: 4px; }
+    #user-info button { padding: 4px 7px; font-size: 10px; }
+    #username-display { font-size: 11px; }
+
+    /* Auth */
+    .auth-form { border-radius: 12px; padding: 24px 18px; }
+
+    /* Main section занимает всё оставшееся место */
+    #main-section {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Workspace — одна колонка, без боковых панелей */
+    .workspace {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        gap: 0;
+    }
+
+    /* Боковая панель комнат — скрыта, управляется через таббар */
+    .rooms-sidebar {
+        display: none;
+        position: fixed;
+        inset: 0;
+        bottom: 52px; /* высота таббара */
+        z-index: 200;
+        border-radius: 0;
+        border: none;
+        border-right: 1px solid var(--accent-border);
+        width: 240px;
+        max-height: none;
+    }
+    .rooms-sidebar.mobile-open { display: flex; }
+
+    /* Оверлей под боковой панелью */
+    .mobile-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        bottom: 52px;
+        background: rgba(0,0,0,0.5);
+        z-index: 199;
+    }
+    .mobile-overlay.active { display: block; }
+
+    /* Дайсы — скрыты, управляются через таббар */
+    .dice-sidebar {
+        display: none;
+        position: fixed;
+        inset: 0;
+        bottom: 52px;
+        left: auto;
+        right: 0;
+        z-index: 200;
+        border-radius: 0;
+        border: none;
+        border-left: 1px solid var(--accent-border);
+        width: 260px;
+        max-height: none;
+    }
+    .dice-sidebar.mobile-open { display: flex; }
+
+    /* Main content — только чат */
+    .main-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        gap: 0;
+    }
+
+    .chat-area {
+        flex: 1;
+        min-height: 0;
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+        border-top: none;
+    }
+
+    /* Нижний таббар навигации */
+    .mobile-tabbar {
+        flex-shrink: 0;
+        height: 52px;
+        background: var(--bg-panel);
+        border-top: 1px solid var(--accent-border);
+        display: flex;
+        align-items: stretch;
+        z-index: 300;
+    }
+
+    .mobile-tab {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        background: transparent;
+        border: none;
+        color: var(--text-muted);
+        font-size: 9px;
+        font-weight: 600;
+        padding: 4px 2px;
+        cursor: pointer;
+        transition: color 0.15s, background 0.15s;
+        border-radius: 0;
+        box-shadow: none;
+        transform: none !important;
+    }
+    .mobile-tab:hover { background: var(--accent-dim); color: var(--text-soft); }
+    .mobile-tab.active { color: var(--accent); background: rgba(139,92,246,0.1); }
+    .mobile-tab-icon { font-size: 18px; line-height: 1; }
+
+    /* Поле ввода сообщения — компактнее */
+    #message-text { height: 40px; min-height: 40px; font-size: 13px; margin-bottom: 4px; }
+    .message-input { padding: 5px 8px; }
+    .input-controls { gap: 4px; }
+    #message-type { font-size: 11px; padding: 4px 5px; }
+
+    /* Сообщения */
+    #messages { padding: 6px 8px; }
+    .message { padding: 5px 8px; font-size: 12px; }
+
+    /* Модалки — на весь экран снизу */
+    .modal { align-items: flex-end; }
+    .modal-content {
+        border-radius: 16px 16px 0 0 !important;
+        max-height: 85dvh !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
 }
 
 /* ── 3D Dice animation ────────────────────────────────────────────────────── */
