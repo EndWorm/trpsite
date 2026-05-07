@@ -23,51 +23,45 @@ document.addEventListener('DOMContentLoaded', () => {
     initEventListeners();
     initAccordions();
 
-    // Показываем экран загрузки пока Firebase не ответит
+    // Показываем спиннер загрузки
     document.getElementById('auth-section').style.display = 'flex';
-    document.getElementById('auth-register').style.display = 'none';
     document.getElementById('auth-loading').style.display = 'block';
+    document.getElementById('auth-accounts').style.display = 'none';
+    document.getElementById('auth-first-run').style.display = 'none';
 
-    const proceed = () => {
-        showLoadingIndicator(false);
+    const proceed = (data) => {
+        if (data) applySharedState(data);
+        document.getElementById('auth-loading').style.display = 'none';
         if (state.currentUser) {
-            // Есть сохранённый пользователь — автовход
             showMainSection();
         } else {
-            // Показываем экран выбора аккаунта
             showAuthScreen();
         }
         subscribeToFirebase();
     };
 
-    setTimeout(() => {
+    // Ждём firebase.js — он ES-модуль, грузится параллельно
+    // Поллим флаг каждые 100мс, максимум 8 секунд
+    let tries = 0;
+    const wait = setInterval(() => {
+        tries++;
+        // Обновляем текст чтобы пользователь видел прогресс
+        const txt = document.getElementById('auth-loading-text');
+        if (txt && tries === 20) txt.textContent = 'Загрузка Firebase SDK...';
+        if (txt && tries === 50) txt.textContent = 'Медленное соединение...';
+
         if (window.firebaseLoad) {
-            window.firebaseLoad(data => {
-                if (data) applySharedState(data);
-                proceed();
-            });
-        } else {
-            proceed();
+            clearInterval(wait);
+            window.firebaseLoad(data => proceed(data));
+        } else if (tries >= 80) {
+            // 8 секунд — работаем без Firebase (офлайн)
+            clearInterval(wait);
+            proceed(null);
         }
-    }, 300);
+    }, 100);
 });
 
-function showLoadingIndicator(show) {
-    let el = document.getElementById('loading-indicator');
-    if (!el) {
-        el = document.createElement('div');
-        el.id = 'loading-indicator';
-        el.innerHTML = '<div class="loading-spinner"></div><span>Подключение...</span>';
-        el.style.cssText = `
-            position:fixed; inset:0; background:rgba(15,12,41,0.92);
-            display:flex; align-items:center; justify-content:center;
-            gap:12px; color:#a78bfa; font-size:14px; z-index:99999;
-            flex-direction:column;
-        `;
-        document.body.appendChild(el);
-    }
-    el.style.display = show ? 'flex' : 'none';
-}
+function showLoadingIndicator() {} // оставляем пустой чтобы не ломать вызовы
 
 function initEventListeners() {
     document.getElementById('logout-btn').addEventListener('click', logout);
