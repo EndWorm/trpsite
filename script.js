@@ -31,7 +31,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('auth-first-run').style.display = 'none';
 
     const proceed = (data) => {
-        if (data) applySharedState(data);
+        if (data) {
+            applySharedState(data);
+            // Если данные из старого пути rpState — мигрируем
+            migrateOldData(data);
+        }
         document.getElementById('auth-loading').style.display = 'none';
         if (state.currentUser) {
             showMainSection();
@@ -976,10 +980,16 @@ function applySharedState(data) {
 }
 
 function saveToStorage() {
-    // Личные данные — только localStorage (не меняем savedUser здесь)
     const shared = getSharedState();
+    // Кэш локально
     localStorage.setItem('rpShared', JSON.stringify(shared));
-    if (window.firebaseSave) window.firebaseSave(shared);
+
+    if (window.firebaseSaveNode) {
+        // Пишем только изменившиеся узлы — вызываем для каждого
+        Object.keys(shared).forEach(node => {
+            window.firebaseSaveNode(node, shared[node]);
+        });
+    }
 }
 
 function loadFromStorage() {
@@ -1000,34 +1010,67 @@ function loadFromStorage() {
     }
 }
 
+// При первом сохранении мигрируем старый путь rpState → rp/
+function migrateOldData(data) {
+    if (!data) return;
+    // Если данные пришли из старого пути — сохраняем в новый
+    if (window.firebaseSaveAll) window.firebaseSaveAll(data);
+}
+
 // Подписка на Firebase — вызывается один раз после DOMContentLoaded
 function subscribeToFirebase() {
     if (!window.firebaseSubscribe) return;
 
-    window.firebaseSubscribe(data => {
-        applySharedState(data);
-        localStorage.setItem('rpShared', JSON.stringify(data));
+    window.firebaseSubscribe((node, value) => {
+        // Обновляем только изменившийся узел
+        if (value !== null) {
+            state[node] = value;
+        }
 
+        // Кэшируем
+        try {
+            const cached = JSON.parse(localStorage.getItem('rpShared') || '{}');
+            cached[node] = value;
+            localStorage.setItem('rpShared', JSON.stringify(cached));
+        } catch(e) {}
+
+        // Перерисовываем только то что нужно
         if (state.currentUser) {
-            renderRoomTabs();
-            renderMessages(state.currentRoomIsArchived || false);
-            renderRoomDiceHistory();
-            updateOnlineUsers();
-
-            if (_editingProfile && document.getElementById('profile-modal').style.display === 'flex') {
-                openProfileFor(_editingProfile, state.isGM);
-            }
-
-            // ГМ: показываем бейдж с количеством новых заявок
-            if (state.isGM) {
-                const pending = Object.values(state.applications || {}).filter(a => a.status === 'pending').length;
-                const btn = document.getElementById('players-btn');
-                if (btn) btn.textContent = pending > 0 ? `👥 Игроки (${pending})` : '👥 Игроки';
+            switch(node) {
+                case 'messages':
+                    renderMessages(state.currentRoomIsArchived || false);
+                    break;
+                case 'rooms':
+                case 'groups':
+                case 'archivedRooms':
+                    renderRoomTabs();
+                    updateOnlineUsers();
+                    break;
+                case 'diceHistory':
+                    renderRoomDiceHistory();
+                    break;
+                case 'profiles':
+                    // Обновляем аватары в сообщениях только если профиль открыт
+                    if (_editingProfile && document.getElementById('profile-modal').style.display === 'flex') {
+                        openProfileFor(_editingProfile, state.isGM);
+                    }
+                    break;
+                case 'players':
+                case 'applications':
+                    if (state.isGM) {
+                        const pending = Object.values(state.applications || {})
+                            .filter(a => a.status === 'pending').length;
+                        const btn = document.getElementById('players-btn');
+                        if (btn) btn.textContent = pending > 0 ? `👥 Игроки (${pending})` : '👥 Игроки';
+                    }
+                    break;
             }
         } else {
-            // Пользователь на экране входа — обновляем список аккаунтов
-            const accountsVisible = document.getElementById('auth-accounts').style.display !== 'none';
-            if (accountsVisible) renderAccountsList();
+            // На экране входа — обновляем список аккаунтов
+            if (node === 'players' || node === 'applications') {
+                const accountsVisible = document.getElementById('auth-accounts')?.style.display !== 'none';
+                if (accountsVisible) renderAccountsList();
+            }
         }
     });
 }
